@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import zlib from 'node:zlib'
+import { isInside } from './protocol.js'
 
 const ZSTD_MAGIC = Buffer.from([0x28, 0xb5, 0x2f, 0xfd])
 
@@ -208,6 +209,19 @@ export function listPending(home) {
   return sessions
 }
 
+/**
+ * 暂存文件名是否安全。
+ *
+ * `id` 来自请求体，直接拼进 `path.join` 会被 `..` 带出暂存目录——窗口版面板能借宿主的
+ * 权限删掉 `DSH_HOME` 下任意 `.json`。这里只接受平铺的文件名，不接受任何路径分隔符。
+ */
+function isPlainStagingId(id) {
+  if (id === '' || id === '.' || id === '..') return false
+  if (id.includes('/') || id.includes('\\') || id.includes('\0')) return false
+  // Windows 会去掉结尾的点和空格，`settings.` 与 `settings` 指向同一个文件。
+  return !id.endsWith('.') && !id.endsWith(' ')
+}
+
 /** 确认已取走，删除暂存。 */
 export function ackPending(home, imports) {
   const root = stagingRoot(home)
@@ -215,8 +229,10 @@ export function ackPending(home, imports) {
   for (const entry of imports) {
     const id = typeof entry === 'string' ? entry : String(entry.id ?? '')
     const importId = typeof entry === 'string' ? undefined : entry.importId
-    if (id === '') continue
+    if (!isPlainStagingId(id)) continue
     const file = path.join(root, `${id}.json`)
+    // 双保险：即使上面的字符检查将来放松，也不允许落到暂存目录之外。
+    if (!isInside(root, file)) continue
     if (!fs.existsSync(file)) continue
     // 旧面板或旧暂存没有 importId：只有文件本身也没有标识时才允许按 ID 删除；
     // 否则旧确认会把同一会话后来生成的新暂存一并删掉。

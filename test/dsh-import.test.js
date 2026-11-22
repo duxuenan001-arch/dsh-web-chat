@@ -66,3 +66,43 @@ test('导入暂存：旧操作的确认不会删除后来生成的新暂存', ()
   }
 })
 
+test('导入暂存：确认不接受越出暂存目录的 id', () => {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'dsh-import-'))
+  try {
+    // 暂存目录之外放一个诱饵：越界删除会把它带走。
+    // 它必须**没有 importId**——这才是越界守卫真正要挡的形态：
+    // 带 importId 的确认会被「标识不匹配」顺手挡掉，测不出守卫。
+    const outside = path.join(home, 'settings.json')
+    fs.writeFileSync(outside, JSON.stringify({ theme: 'dark' }))
+    stageImport(home, { id: 's1', title: '测试', createdAt: 1, updatedAt: 2, messages: [] })
+
+    const attacks = [
+      '../settings',
+      '..\\settings',
+      '../../settings',
+      './../settings',
+      'sub/../../settings',
+      '..',
+      '.',
+      '',
+      '. .',
+      'settings.',
+      'settings ',
+      'a\0b',
+    ]
+    for (const id of attacks) {
+      // 不带 importId：旧面板的确认形态，也正是越界删除可利用的入口。
+      assert.deepEqual(ackPending(home, [id]), [], `不该删除：${JSON.stringify(id)}`)
+      assert.deepEqual(ackPending(home, [{ id }]), [], `不该删除：${JSON.stringify({ id })}`)
+      assert.equal(fs.existsSync(outside), true, `暂存目录外的文件被删了：${JSON.stringify(id)}`)
+    }
+    assert.equal(listPending(home).length, 1, '正常暂存不该被误删')
+
+    // 正常 id 仍然可删，说明守卫没有把功能一起关掉。
+    const pending = listPending(home)[0]
+    assert.deepEqual(ackPending(home, [{ id: 's1', importId: pending.importId }]), ['s1'])
+  } finally {
+    fs.rmSync(home, { recursive: true, force: true })
+  }
+})
+

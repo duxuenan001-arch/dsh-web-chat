@@ -20,12 +20,22 @@
 2. 宿主把 `/webchat/anthropic/v1/messages` 转发到官方 Messages：
    - 优先 DSH 账户令牌（`x-dsh-auth-token`）
    - 没有账户令牌时用 DSH 模型设置里的 API Key（`x-api-key`）
+   - 凭据名只在 **DeepSeek 自己的提供方**里找（`ns` 以 `deepseek` 开头，或 `baseURL` 指向 `deepseek.com`）；装了多个模型提供方时不能按 `apiKeyEnv` 字段名模糊匹配，否则会取到别家的 Key
 3. 附件走 `/webchat/anthropic/v1/files`：
    - 只有官方端点（hostname `api.deepseek.com`）改走 Files API 根路径 `/files`
    - 自定义兼容网关保留原 `/anthropic/v1/files`
    - 图片表单带 `purpose=user_data`，但仍先做客户端预缩放
    - 100MB 级上传必须流式转发，不能整包读内存
+   - `readBody` 的 64MiB 上限只管整包读的请求（JSON / TTS / ASR），**不管**附件流式转发
 4. TTS/ASR 都经宿主 `/webchat/v1/tools/*` 转发，浏览器不接触凭据。
+
+## 来源校验
+
+插件路由不在 DSH 的 `/api` 信任栅栏内，由 `untrustedRejection` 自己挡：有 `connection` 服务时用它的 `requestRejection`（Host/Origin 栅栏 + 浏览器 Cookie）；旧宿主没有该服务时退回检查 `Sec-Fetch-Site: cross-site`。`dsh-app:` 桌面窗口放行。
+
+`connection` 不能升成必需注入——`engines.dsh` 覆盖到 `0.1.7-alpha.1`，缺该服务的老宿主上插件会整个不挂载。因此这一层是「两侧都挡，没有无条件放行」，而不是「缺席即拒绝」。
+
+静态产物里带内容哈希的资源返回 `immutable` 长缓存；入口页与 `LICENSE` 不缓存，保证能拿到最新资源名。
 
 ## 长文档链路
 

@@ -5,11 +5,12 @@
  *   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<临时目录>
  *
  * 用法：node scripts/smoke-webview.mjs [baseURL]
+ * 默认取 DSH_WEB_BASE_URL；DSH 的实际端口每次启动可能不同，跑之前先看一眼地址栏。
  */
 import fs from 'node:fs'
 import path from 'node:path'
 
-const BASE = process.argv[2] ?? 'http://127.0.0.1:59731/webchat/'
+const BASE = process.argv[2] ?? process.env.DSH_WEB_BASE_URL ?? 'http://127.0.0.1:3080/webchat/'
 const OUT = path.join(import.meta.dirname, '..', 'docs', 'assets')
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 

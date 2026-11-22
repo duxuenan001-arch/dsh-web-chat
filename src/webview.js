@@ -37,7 +37,12 @@ const MIME = {
   '.map': 'application/json; charset=utf-8',
 }
 
-const MAX_BODY = 64 * 1024 * 1024
+/**
+ * 需要整包读进内存的请求体上限（JSON 请求、TTS/ASR 转发）。
+ * 附件上传不走这里：`proxyFiles` 用 `Readable.toWeb(req)` 流式转发，不受此限制，
+ * 官方 Files API 根路径可接收 100MiB。不要把这里调大去「修」上传。
+ */
+const MAX_JSON_BODY = 64 * 1024 * 1024
 
 /**
  * 页面启动前把"已经登录"的状态铺好：网页版要一个 API Key 才肯进主界面，
@@ -66,7 +71,7 @@ export async function readBody(req) {
   let total = 0
   for await (const chunk of req) {
     total += chunk.length
-    if (total > MAX_BODY) throw new Error('请求体过大')
+    if (total > MAX_JSON_BODY) throw new Error('请求体过大')
     chunks.push(chunk)
   }
   return Buffer.concat(chunks)
@@ -84,31 +89,55 @@ function readIndex() {
   return html.replace(/<head>/iu, `<head>${BOOTSTRAP}`)
 }
 
+/**
+ * 构建产物的文件名带内容哈希，可以长期缓存；入口页必须每次现取（要拿到最新资源名）。
+ * 以前这里一律不带缓存头，等于每个面板打开都把首屏 chunk 重下一遍。
+ */
+const HASHED_ASSET = /\.[0-9a-f]{8,}\.(?:js|css|woff2?|ttf|png|jpe?g|webp|gif|svg)$/iu
+
 async function sendFile(res, file) {
   if (!fs.existsSync(file) || !fs.statSync(file).isFile()) {
     res.writeHead(404).end('not found')
     return
   }
   const type = MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream'
-  res.writeHead(200, { 'content-type': type, 'content-length': fs.statSync(file).size })
+  const headers = { 'content-type': type, 'content-length': fs.statSync(file).size }
+  if (HASHED_ASSET.test(file)) headers['cache-control'] = 'public, max-age=31536000, immutable'
+  res.writeHead(200, headers)
   await pipeline(fs.createReadStream(file), res)
 }
 
 /** DSH 里模型设置默认使用的凭据名；安装可自定义 apiKeyEnv，优先按设置里的名字取。 */
 const DEFAULT_API_KEY_REF = 'DEEPSEEK_API_KEY'
 
+/**
+ * 判断一个配置段是否属于 DeepSeek 的 API Key 提供方。
+ *
+ * `settings.describe()` 返回的是**整份 DSH 配置**，装了多个模型提供方时
+ * （DeepSeek + OpenRouter 等）里面会有多份 `apiKeyEnv`。只按 key 名模糊匹配会取到
+ * 别人家的 Key，发给 api.deepseek.com 就是一个无法解释的 401。
+ */
+function isDeepSeekProvider(descriptor) {
+  const ns = typeof descriptor?.ns === 'string' ? descriptor.ns : ''
+  // 只认 DSH 自己的 DeepSeek 提供方前缀，避免 ns 里偶然带 deepseek 字样的段被误选。
+  if (/^(?:llm-)?deepseek(?:-|$)/iu.test(ns)) return true
+  const baseURL = descriptor?.value?.baseURL
+  return typeof baseURL === 'string' && /(?:^|\.)deepseek\.com/iu.test(baseURL)
+}
+
 /** 从 DSH 设置描述里找 DeepSeek API Key 提供方配置的凭据名。 */
 function findApiKeyRef(ctx) {
   try {
     const descriptors = ctx.get('settings')?.describe?.() ?? []
-    const stack = descriptors.map(descriptor => descriptor?.value)
-    while (stack.length > 0) {
-      const value = stack.pop()
-      if (value === null || typeof value !== 'object') continue
-      for (const [key, entry] of Object.entries(value)) {
-        if (/apikeyenv/iu.test(key) && typeof entry === 'string' && entry.length > 0) return entry
-        if (entry !== null && typeof entry === 'object') stack.push(entry)
-      }
+    // 先只看 DeepSeek 自己的提供方；都没有时才退回全表扫描，保持旧宿主可用。
+    for (const descriptor of descriptors) {
+      if (!isDeepSeekProvider(descriptor)) continue
+      const ref = descriptor?.value?.apiKeyEnv
+      if (typeof ref === 'string' && ref.length > 0) return ref
+    }
+    for (const descriptor of descriptors) {
+      const ref = descriptor?.value?.apiKeyEnv
+      if (typeof ref === 'string' && ref.length > 0) return ref
     }
   } catch {
     // 设置服务不可读时退回约定名
@@ -309,6 +338,13 @@ async function selfTest(ctx, config) {
  * 插件路由不在 DSH 的 /api 信任栅栏内，必须自己调用 Connection 的
  * Host/Origin 校验和浏览器认证；否则任何网页都能借已登录的 DSH 调用转发接口。
  * 桌面 App 自身窗口（dsh-app:）不走浏览器 Cookie，直接放行。
+ *
+ * 分两层，任何一层都不允许「无条件放行」：
+ *   1. 有 `connection` 时用它做权威判定（Host/Origin 栅栏 + 浏览器 Cookie）；
+ *   2. 旧宿主没有该服务时，退回到自己挡跨站请求（`Sec-Fetch-Site: cross-site`）。
+ *
+ * 不能把 `connection` 升成必需注入：`engines.dsh` 覆盖到 0.1.7-alpha.1，
+ * 缺少该服务的老宿主上插件会整个不挂载。旧宿主兼容优先于此处的严格程度。
  * @returns {number | undefined} 拒绝状态码，放行时为 undefined
  */
 function untrustedRejection(ctx, req) {
@@ -318,14 +354,19 @@ function untrustedRejection(ctx, req) {
   try {
     connection = ctx.get('connection')
   } catch {
-    return undefined
+    connection = undefined
   }
-  if (connection === undefined || typeof connection.requestRejection !== 'function') return undefined
-  try {
-    return connection.requestRejection(req)
-  } catch {
-    return 401
+  if (typeof connection?.requestRejection === 'function') {
+    try {
+      return connection.requestRejection(req)
+    } catch {
+      return 401
+    }
   }
+  // 没有权威校验器时不是放行，而是用浏览器自报的请求上下文挡一层。
+  const site = String(req.headers?.['sec-fetch-site'] ?? '').toLowerCase()
+  if (site === 'cross-site') return 403
+  return undefined
 }
 /**
  * 建立请求处理器（Node 原生 req/res）。

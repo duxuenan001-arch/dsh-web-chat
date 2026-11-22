@@ -75,6 +75,35 @@ window.__ModuleLoader__.load({
       for (const listener of importBus.listeners) listener(importBus.token)
     }
 
+    // DSH 的界面主题由 shell 自己管，插件面板是 iframe，拿不到 shell 的 React 状态，
+    // 但两边同源、共享 localStorage。这里把 shell 当前主题写成约定值，iframe 的引导脚本
+    // 读它来决定网页版主题和根画布底色，避免点开面板时先闪一下白底。
+    const SHELL_THEME_KEY = 'dsh-chat-web:shell-theme'
+    const readShellTheme = () => {
+      try {
+        const root = document.documentElement
+        if (root.dataset.theme === 'dark' || root.dataset.theme === 'light') return root.dataset.theme
+        // shell 用 data-theme 暴露主题时优先用它；否则按根元素底色亮度反推。
+        const bg = getComputedStyle(root).backgroundColor
+        const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)/u.exec(bg)
+        if (match === null) return 'system'
+        const [r, g, b] = [Number(match[1]), Number(match[2]), Number(match[3])]
+        return (r * 299 + g * 587 + b * 114) / 1000 < 128 ? 'dark' : 'light'
+      } catch (_error) {
+        return 'system'
+      }
+    }
+    const publishShellTheme = () => {
+      try {
+        const theme = readShellTheme()
+        if (window.localStorage.getItem(SHELL_THEME_KEY) !== theme) {
+          window.localStorage.setItem(SHELL_THEME_KEY, theme)
+        }
+      } catch (_error) {
+        // 存储不可用只影响首帧底色，不影响主题切换本身。
+      }
+    }
+
     // 浏览器式页面缩放：官方网页版由 Chromium 自带 Ctrl+滚轮/Ctrl+± 缩放；
     // DSH 的 Electron 内容区没有这层行为，所以在面板 iframe 内补上，不加任何设置界面。
     // v2 key：旧实现把“没有存储值”误判成 0（再钳到 80%），换 key 让首次安装回到 100%。
@@ -281,6 +310,31 @@ window.__ModuleLoader__.load({
 
     function PanelFrame({ reloadToken }) {
       const ref = React.useRef(null)
+      // iframe 元素自身的底色也要跟随：它先于页面内容渲染，写死 #fff 时深色主题下会闪白。
+      const [background, setBackground] = React.useState(() => {
+        const theme = readShellTheme()
+        return theme === 'dark' ? '#151517' : '#fff'
+      })
+      React.useEffect(() => {
+        publishShellTheme()
+        const update = () => {
+          const theme = readShellTheme()
+          setBackground(theme === 'dark' ? '#151517' : '#fff')
+          publishShellTheme()
+        }
+        update()
+        window.addEventListener('resize', update)
+        // shell 切换主题时改的是根元素属性或 class，两个都要观察。
+        const mutation = new MutationObserver(update)
+        mutation.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['data-theme', 'class', 'style'],
+        })
+        return () => {
+          window.removeEventListener('resize', update)
+          mutation.disconnect()
+        }
+      }, [reloadToken])
       React.useEffect(() => {
         const iframe = ref.current
         if (!iframe) return undefined
@@ -291,7 +345,7 @@ window.__ModuleLoader__.load({
         src: '/webchat/',
         title: 'DeepSeek 网页版',
         allow: 'clipboard-write; microphone',
-        style: { width: '100%', height: '100%', border: 'none', display: 'block', background: '#fff' },
+        style: { width: '100%', height: '100%', border: 'none', display: 'block', background },
       })
     }
 

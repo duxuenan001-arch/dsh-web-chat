@@ -47,11 +47,25 @@ const MAX_JSON_BODY = 64 * 1024 * 1024
 /**
  * 页面启动前把"已经登录"的状态铺好：网页版要一个 API Key 才肯进主界面，
  * 这里塞一个占位值，真正的鉴权由宿主转发时完成。
+ *
+ * 主题在这一步一起铺：网页版默认是 `system`，跟随的是**操作系统**偏好，不是 DSH 的
+ * 主题，两者经常不一致。宿主（同源，共享 localStorage）把 DSH 当前主题写进
+ * `dsh-chat-web:shell-theme`，这里读出来再直接写根画布底色——这样从 HTML 解析到
+ * React 挂载之间不会先闪一下白底。
+ * 用户在网页版设置里手动选过主题后（值已是 light/dark）就不再覆盖。
  */
 const BOOTSTRAP = `<script>(function(){try{var s=window.localStorage;
 if(!s.getItem('chat-demo:api-key'))s.setItem('chat-demo:api-key','dsh');
 if(!s.getItem('chat-demo:locale'))s.setItem('chat-demo:locale','zh-CN');
 if(!s.getItem('chat-demo:thinking'))s.setItem('chat-demo:thinking','true');
+if(!s.getItem('dsh-chat-web:shell-theme'))s.setItem('dsh-chat-web:shell-theme','system');
+var d=s.getItem('dsh-chat-web:shell-theme');
+var saved=s.getItem('chat-demo:theme-preference');
+if(d&&d!=='system'&&(!saved||saved==='system'))s.setItem('chat-demo:theme-preference',d);
+var t=(d&&d!=='system')?d:(saved||'light');
+if(t!=='dark'&&t!=='light')t='light';
+document.documentElement.style.colorScheme=t;
+document.documentElement.style.backgroundColor=t==='dark'?'#151517':'#ffffff';
 }catch(e){}})();</script>`
 
 /** 统一 JSON 响应。 */

@@ -442,7 +442,7 @@ window.__ModuleLoader__.load({
           name: 'sidebar.panellist',
           id: 'chat-in-dsh',
           order: 20,
-          label: '网页版',
+          label: '网页版test',
         }, PanelIcon)), 'webchat.panellist')
 
         async function importSession(sessionId, closeMenu) {

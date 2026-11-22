@@ -5,7 +5,8 @@
  * 另外在会话的右键菜单里加一行「导入到网页版」——一次性复制，复制完两边各管各的。
  */
 window.__ModuleLoader__.load({
-  id: 'chat-in-dsh',
+  // 必须与 package.json 的 name 一致：DSH 用包名给前端 bundle 建索引。
+  id: 'dsh-chat-web',
   factory(require) {
     const React = require('react')
     const h = React.createElement
@@ -77,7 +78,7 @@ window.__ModuleLoader__.load({
     // 浏览器式页面缩放：官方网页版由 Chromium 自带 Ctrl+滚轮/Ctrl+± 缩放；
     // DSH 的 Electron 内容区没有这层行为，所以在面板 iframe 内补上，不加任何设置界面。
     // v2 key：旧实现把“没有存储值”误判成 0（再钳到 80%），换 key 让首次安装回到 100%。
-    const PANEL_ZOOM_KEY = 'chat-in-dsh:panel-zoom:v2'
+    const PANEL_ZOOM_KEY = 'dsh-chat-web:panel-zoom:v2'
     const PANEL_ZOOM_LEVELS = [25, 33, 50, 67, 75, 80, 90, 100, 110, 125, 150, 175, 200, 250, 300, 400, 500]
     const PANEL_ZOOM_DEFAULT_INDEX = PANEL_ZOOM_LEVELS.indexOf(100)
     const nearestZoomIndex = (value) => {
@@ -423,7 +424,7 @@ window.__ModuleLoader__.load({
           return h(MenuItemButton, { disabled: status === 'pending', onSelect }, label)
         }
 
-        return ctx.slots.register({ name, id: 'chat-in-dsh:import', order: 10 }, ImportRow)
+        return ctx.slots.register({ name, id: 'dsh-chat-web:import', order: 10 }, ImportRow)
       })
     }
 
@@ -435,12 +436,12 @@ window.__ModuleLoader__.load({
 
         ctx.effect(() => ctx.slots.inject('main', () => ctx.slots.register({
           name: 'main',
-          key: 'chat-in-dsh',
+          key: 'dsh-chat-web',
         }, Panel)), 'webchat.panel')
 
         ctx.effect(() => ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
-          id: 'chat-in-dsh',
+          id: 'dsh-chat-web',
           order: 20,
           label: '网页版dsh',
         }, PanelIcon)), 'webchat.panellist')
@@ -454,7 +455,7 @@ window.__ModuleLoader__.load({
           if (!response.ok) throw new Error(`stage failed: ${response.status}`)
           closeMenu?.()
           notifyImported()
-          ctx.layout.selectPanel('chat-in-dsh')
+          ctx.layout.selectPanel('dsh-chat-web')
         }
 
         ctx.effect(() => {
@@ -474,16 +475,16 @@ window.__ModuleLoader__.load({
             unmountLegacy()
             menuCtx.effect(() => menuCtx.slots.inject('contextMenu.icon', () => menuCtx.slots.register({
               name: 'contextMenu.icon',
-              key: 'chat-in-dsh',
+              key: 'dsh-chat-web',
             }, ImportIcon)), 'webchat.import-icon')
             menuCtx.effect(() => menuCtx.contextMenus.register({
-              id: 'chat-in-dsh',
+              id: 'dsh-chat-web',
               target: 'session',
               order: 10,
               resolve: (target) => [{
-                id: 'chat-in-dsh:import',
+                id: 'dsh-chat-web:import',
                 label: IMPORT_LABEL,
-                icon: { key: 'chat-in-dsh' },
+                icon: { key: 'dsh-chat-web' },
                 afterContent: true,
                 run: async () => {
                   await importSession(target.sessionId)

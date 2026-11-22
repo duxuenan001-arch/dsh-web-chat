@@ -27,11 +27,11 @@ git push origin main
 npm publish --registry=https://registry.npmjs.org/ --access public
 
 # 3. 打 tag
-git tag -a vX.Y.Z -m 'chat-in-dsh X.Y.Z'
+git tag -a vX.Y.Z -m 'dsh-chat-web X.Y.Z'
 git push origin vX.Y.Z
 
 # 4. GitHub Release
-gh release create vX.Y.Z --title 'chat-in-dsh X.Y.Z' --notes-file <release-notes.md>
+gh release create vX.Y.Z --title 'dsh-chat-web X.Y.Z' --notes-file <release-notes.md>
 ```
 
 发布后核对：

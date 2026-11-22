@@ -128,7 +128,7 @@ test('旧宿主通过原生菜单按钮导入点击的会话并关闭菜单', as
     body: { sessionId: 'clicked-session' },
   }])
   assert.deepEqual(menuOpen, [false])
-  assert.deepEqual(client.panels, ['chat-in-dsh'])
+  assert.deepEqual(client.panels, ['dsh-chat-web'])
 })
 
 test('旧菜单在导入中只发送一次请求，失败后允许重试', async () => {
@@ -165,11 +165,11 @@ test('新版只注册原生会话菜单，保留图标、成功提示和失败�
   const [action] = menu.resolve({ sessionId: 'native-session' })
   assert.equal(action.afterContent, true)
   assert.equal(action.label, '导入到网页版')
-  assert.equal(action.icon.key, 'chat-in-dsh')
+  assert.equal(action.icon.key, 'dsh-chat-web')
   assert.equal(action.failureLabel, '导入失败')
   await action.run()
   assert.equal(client.requests[0].body.sessionId, 'native-session')
-  assert.deepEqual(client.panels, ['chat-in-dsh'])
+  assert.deepEqual(client.panels, ['dsh-chat-web'])
   assert.deepEqual(client.notices, [['已导入到网页版', true]])
 
   client.setResponse({ ok: false, status: 404 })

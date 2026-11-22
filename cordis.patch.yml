@@ -1,10 +1,12 @@
-# chat-in-dsh
+# dsh-chat-web
 #
 # 一个入口：左侧面板列表里的「网页版」（main + sidebar.panellist 用同一个 key 拼成）。
 # 网页版与 DSH 会话互不干涉，因此这里没有预设、没有模型路由、也没有会话桥。
+# id / name 必须与 package.json 的 name 一致：DSH 按包名解析这一行的模块，
+# 并对前端 bundle 用同一个名字建索引。
 - insert:
-    - id: chat-in-dsh
-      name: chat-in-dsh
+    - id: dsh-chat-web
+      name: dsh-chat-web
       config:
         baseURL: ''
 

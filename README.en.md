@@ -1,15 +1,13 @@
 <div align="center">
-  <img src="icon.svg" width="88" alt="chat-in-dsh icon" />
-  <h1>chat-in-dsh</h1>
+  <img src="icon.svg" width="88" alt="dsh-chat-web icon" />
+  <h1>dsh-chat-web</h1>
   <p><strong>The authentic DeepSeek web chat, inside DeepSeek Harness (DSH).</strong></p>
   <p>
-    <a href="https://www.npmjs.com/package/chat-in-dsh"><img alt="npm" src="https://img.shields.io/npm/v/chat-in-dsh?style=flat-square" /></a>
-    <a href="https://github.com/YinkaiYu/chat-in-dsh/actions/workflows/test.yml"><img alt="Test" src="https://img.shields.io/github/actions/workflow/status/YinkaiYu/chat-in-dsh/test.yml?style=flat-square" /></a>
-    <a href="https://github.com/YinkaiYu/chat-in-dsh/releases"><img alt="Release" src="https://img.shields.io/github/v/release/YinkaiYu/chat-in-dsh?style=flat-square" /></a>
-    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/YinkaiYu/chat-in-dsh?style=flat-square" /></a>
+    <a href="https://github.com/duxuenan001-arch/dsh-web-chat/actions/workflows/test.yml"><img alt="Test" src="https://img.shields.io/github/actions/workflow/status/duxuenan001-arch/dsh-web-chat/test.yml?style=flat-square" /></a>
+    <a href="https://github.com/duxuenan001-arch/dsh-web-chat/releases"><img alt="Release" src="https://img.shields.io/github/v/release/duxuenan001-arch/dsh-web-chat?style=flat-square" /></a>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/github/license/duxuenan001-arch/dsh-web-chat?style=flat-square" /></a>
     <img alt="Based on official chat-demo" src="https://img.shields.io/badge/based_on-official%20chat--demo-2F6FEB?style=flat-square" />
     <a href="https://github.com/deepseek-ai/deepseek-harness"><img alt="powered by dsh" src="https://img.shields.io/badge/powered_by-dsh-4D6BFE?style=flat-square&logo=deepseek&logoColor=white" /></a>
-    <a href="https://www.dsh.so/artifact/chat-in-dsh/"><img alt="dsh.so" src="https://cdn.dsh.so/badge/chat-in-dsh.svg" /></a>
   </p>
   <p><a href="README.md">简体中文</a> · English</p>
 </div>
@@ -40,7 +38,7 @@ This plugin adds a standalone panel to DSH that hosts the DeepSeek web frontend 
 
 <img src="docs/assets/dsh-2.png" width="760" alt="Click add plugin">
 
-**3. Enter the package name `chat-in-dsh` (or paste the repository URL) and click "Install"**
+**3. Paste this repository's URL `https://github.com/duxuenan001-arch/dsh-web-chat` and click "Install"**
 
 <img src="docs/assets/dsh-3.png" width="760" alt="Enter the package name and install">
 
